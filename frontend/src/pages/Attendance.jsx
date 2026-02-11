@@ -1,19 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { CalendarCheck, Loader2, Calendar as CalendarIcon, Filter } from 'lucide-react';
 import { getEmployees, markAttendance, getAllAttendance } from '../services/api';
-import { Calendar, CheckCircle, XCircle, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Attendance = () => {
     const [employees, setEmployees] = useState([]);
-    const [attendance, setAttendance] = useState([]);
+    const [attendanceLog, setAttendanceLog] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
-
-    // Form State
-    const [selectedEmployee, setSelectedEmployee] = useState('');
-    const [status, setStatus] = useState('Present');
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(null);
+    const [formData, setFormData] = useState({
+        employeeId: '',
+        status: '',
+        date: new Date().toISOString().split('T')[0]
+    });
+    const [filterDate, setFilterDate] = useState('');
 
     useEffect(() => {
         fetchInitialData();
@@ -28,9 +27,9 @@ const Attendance = () => {
             const empData = await getEmployees();
             setEmployees(empData);
             await fetchAttendance();
-        } catch (err) {
-            setError('Failed to load initial data');
-        } finally {
+            setLoading(false);
+        } catch (error) {
+            toast.error('Failed to load initial data');
             setLoading(false);
         }
     };
@@ -38,117 +37,90 @@ const Attendance = () => {
     const fetchAttendance = async () => {
         try {
             const data = await getAllAttendance(filterDate);
-            setAttendance(data);
-        } catch (err) {
-            console.error('Failed to fetch attendance', err);
+            setAttendanceLog(data);
+        } catch (error) {
+            toast.error('Failed to load attendance logs');
         }
+    };
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(null);
-        setSuccess(null);
-
-        if (!selectedEmployee) {
-            setError('Please select an employee');
-            return;
-        }
-
+        const toastId = toast.loading('Marking attendance...');
         try {
-            await markAttendance({
-                employeeId: selectedEmployee,
-                date,
-                status
-            });
-            setSuccess('Attendance marked successfully');
-            // Refresh list if the date matches filter
-            if (date === filterDate) {
-                fetchAttendance();
-            }
-            // Reset form (optional, maybe keep date)
-            setSelectedEmployee('');
-            setStatus('Present');
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to mark attendance');
+            await markAttendance(formData);
+            toast.success('Attendance marked!', { id: toastId });
+            fetchAttendance();
+            // Reset form but keep date
+            setFormData(prev => ({ ...prev, employeeId: '', status: '' }));
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to mark attendance', { id: toastId });
         }
     };
 
-    if (loading) return (
-        <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-    );
-
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Attendance</h1>
-
-            {/* Notifications */}
-            {error && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-                    <p className="text-red-700">{error}</p>
-                </div>
-            )}
-            {success && (
-                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
-                    <p className="text-green-700">{success}</p>
-                </div>
-            )}
+        <div className="pt-28 px-4 max-w-7xl mx-auto pb-12">
+            <h1 className="text-3xl font-bold text-white mb-2">Attendance</h1>
+            <p className="text-slate-400 mb-8">Track employee presence</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Mark Attendance Form */}
                 <div className="lg:col-span-1">
-                    <div className="bg-white shadow rounded-lg p-6">
-                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <CheckCircle className="w-5 h-5 text-blue-600" />
-                            Mark Attendance
+                    <div className="glass-panel p-6 rounded-xl sticky top-28">
+                        <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+                            <CalendarCheck size={20} className="text-emerald-400" /> Mark Attendance
                         </h2>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    name="date"
+                                    value={formData.date}
+                                    onChange={handleChange}
+                                    className="glass-input w-full [color-scheme:dark]"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">Employee</label>
                                 <select
-                                    value={selectedEmployee}
-                                    onChange={(e) => setSelectedEmployee(e.target.value)}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    name="employeeId"
+                                    value={formData.employeeId}
+                                    onChange={handleChange}
+                                    className="glass-input w-full appearance-none"
                                     required
                                 >
-                                    <option value="">Select Employee</option>
-                                    {employees.map((emp) => (
-                                        <option key={emp.employeeId} value={emp.employeeId}>
+                                    <option value="" className="bg-slate-900 text-slate-400">Select Employee</option>
+                                    {employees.map(emp => (
+                                        <option key={emp.employeeId} value={emp.employeeId} className="bg-slate-900">
                                             {emp.fullName} ({emp.employeeId})
                                         </option>
                                     ))}
                                 </select>
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                                <input
-                                    type="date"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <label className="block text-sm font-medium text-slate-400 mb-1">Status</label>
                                 <select
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value)}
-                                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                    className="glass-input w-full appearance-none"
+                                    required
                                 >
-                                    <option value="Present">Present</option>
-                                    <option value="Absent">Absent</option>
+                                    <option value="" className="bg-slate-900 text-slate-400">Select Status</option>
+                                    <option value="Present" className="bg-slate-900">Present</option>
+                                    <option value="Absent" className="bg-slate-900">Absent</option>
                                 </select>
                             </div>
-
                             <button
                                 type="submit"
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                className="primary-btn w-full flex items-center justify-center gap-2 mt-4"
                             >
-                                Submit Attendance
+                                <CalendarCheck size={18} /> Submit
                             </button>
                         </form>
                     </div>
@@ -156,64 +128,75 @@ const Attendance = () => {
 
                 {/* Attendance Log */}
                 <div className="lg:col-span-2">
-                    <div className="bg-white shadow rounded-lg overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center flex-wrap gap-4">
-                            <h2 className="text-xl font-semibold flex items-center gap-2">
-                                <Calendar className="w-5 h-5 text-gray-600" />
-                                Attendance Log
-                            </h2>
+                    <div className="glass-panel rounded-xl overflow-hidden">
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/30">
+                            <h3 className="font-semibold text-white">Daily Logs</h3>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-600">Filter Date:</span>
+                                <Filter size={16} className="text-slate-400" />
                                 <input
                                     type="date"
                                     value={filterDate}
                                     onChange={(e) => setFilterDate(e.target.value)}
-                                    className="border border-gray-300 rounded-md shadow-sm py-1 px-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                    className="glass-input py-1 px-3 text-sm [color-scheme:dark]"
                                 />
+                                {filterDate && (
+                                    <button
+                                        onClick={() => setFilterDate('')}
+                                        className="text-xs text-blue-400 hover:text-blue-300"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
                             </div>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {attendance.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="3" className="px-6 py-4 text-center text-gray-500">
-                                                No attendance records found for this date.
-                                            </td>
+
+                        {loading ? (
+                            <div className="p-12 text-center text-slate-500">
+                                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500" />
+                                Loading logs...
+                            </div>
+                        ) : attendanceLog.length === 0 ? (
+                            <div className="p-12 text-center text-slate-500">
+                                No attendance records found for this date.
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-white/5 bg-white/5 text-slate-300 text-sm uppercase tracking-wider">
+                                            <th className="p-4 font-medium">Date</th>
+                                            <th className="p-4 font-medium">Employee</th>
+                                            <th className="p-4 font-medium text-right">Status</th>
                                         </tr>
-                                    ) : (
-                                        attendance.map((record) => (
-                                            <tr key={record._id}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {record.employee ? record.employee.fullName : 'Unknown'}
-                                                    <span className="text-gray-500 font-normal ml-1">
-                                                        ({record.employee ? record.employee.employeeId : 'N/A'})
-                                                    </span>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {attendanceLog.map((log) => (
+                                            <tr key={log._id} className="table-row-hover text-slate-300 text-sm">
+                                                <td className="p-4 text-slate-400">
+                                                    {new Date(log.date).toLocaleDateString()}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(record.date).toLocaleDateString()}
+                                                <td className="p-4">
+                                                    <div className="font-medium text-white">
+                                                        {log.employee?.fullName || 'Unknown'}
+                                                    </div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {log.employee?.employeeId}
+                                                    </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.status === 'Present'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
+                                                <td className="p-4 text-right">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${log.status === 'Present'
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                                         }`}>
-                                                        {record.status}
+                                                        {log.status}
                                                     </span>
                                                 </td>
                                             </tr>
                                         ))
                                     )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </tbody>
+                                </table>
+                            </div>
                     </div>
                 </div>
             </div>
