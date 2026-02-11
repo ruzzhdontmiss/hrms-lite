@@ -185,18 +185,18 @@ const Attendance = () => {
                                                 </td>
                                                 <td className="p-4 text-right">
                                                     <span className={`px-2 py-1 rounded-full text-xs font-medium border ${log.status === 'Present'
-                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                                         }`}>
                                                         {log.status}
                                                     </span>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
+                        )}
                     </div>
                 </div>
             </div>
